@@ -1,0 +1,21 @@
+{
+  "name": "risk-intelligence-intervention-simulator",
+  "version": "1.0.0",
+  "description": "Explainable multi-hazard risk scoring API and intervention simulator with a browser-based tester.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "test": "node backend/tests/riskEngine.test.js && node backend/tests/aiServices.test.js",
+    "check": "node --check backend/server.js && node --check frontend/script.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

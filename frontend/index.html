@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASCADE-NET Risk Intelligence</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9Oer+R4W7SkOFeRpok6Y65Bly4bkR6i8t8U3v6lyj5qr"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">CASCADE-NET</p>
+                <h1>Risk Intelligence + Intervention Simulator</h1>
+                <p class="subtitle">Backend tester for real-data, explainable multi-disaster scoring</p>
+            </div>
+
+            <div id="liveStatus" class="live-status status-idle" aria-live="polite">
+                <span class="status-dot"></span>
+                <span>No live data loaded</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="section-panel">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Request</p>
+                        <h2>Location + Disaster Type</h2>
+                    </div>
+                    <button id="useLocationBtn" class="btn btn-glow" type="button">Use Current Location</button>
+                </div>
+
+                <form id="locationForm" class="location-form-grid" novalidate>
+                    <div>
+                        <label for="latitudeInput" class="form-label">Latitude</label>
+                        <input id="latitudeInput" class="form-control command-input" type="text"
+                            placeholder="Example: 28.6139 or 28.6139 N">
+                    </div>
+                    <div>
+                        <label for="longitudeInput" class="form-label">Longitude</label>
+                        <input id="longitudeInput" class="form-control command-input" type="text"
+                            placeholder="Example: 77.2090 or 77.2090 E">
+                    </div>
+                    <div>
+                        <label for="areaNameInput" class="form-label">Area / News Query</label>
+                        <input id="areaNameInput" class="form-control command-input" type="text"
+                            placeholder="Example: Delhi Yamuna">
+                    </div>
+                    <div>
+                        <label for="disasterTypeInput" class="form-label">Disaster Type</label>
+                        <select id="disasterTypeInput" class="form-select command-input">
+                            <option value="flood">Flood / Urban Waterlogging</option>
+                            <option value="landslide">Landslide</option>
+                            <option value="storm">Storm / Cyclone</option>
+                            <option value="heatwave">Heatwave</option>
+                            <option value="wildfire">Wildfire</option>
+                            <option value="earthquake">Earthquake</option>
+                            <option value="drought">Drought</option>
+                        </select>
+                    </div>
+                    <div class="submit-cell">
+                        <button id="analyzeBtn" class="btn btn-primary-ops" type="submit">Analyze Backend</button>
+                    </div>
+                </form>
+
+                <div id="messageBox" class="message-box mt-3" role="status" aria-live="polite"></div>
+            </section>
+
+            <details class="section-panel api-keys-panel">
+                <summary>
+                    <span>
+                        <span class="eyebrow">Optional integrations</span>
+                        <strong>API keys</strong>
+                    </span>
+                    <span id="apiKeysSummaryStatus" class="small-meta">Checking key status...</span>
+                </summary>
+                <p class="panel-copy mt-3">
+                    Open-Meteo and USGS work without keys. Add optional keys below to enable NASA FIRMS wildfire hotspots,
+                    GNews articles, or Gemini AI assessment.
+                </p>
+                <p class="support-note">
+                    Keys are sent to this local server over your app connection and kept in its memory until restart.
+                    They are not saved in this browser or written to <code>.env</code>. Do not expose this app or enter keys
+                    on a shared computer.
+                </p>
+                <form id="apiKeysForm">
+                    <div class="api-key-grid">
+                        <div class="api-key-field">
+                            <label for="firmsMapKeyInput" class="form-label">NASA FIRMS map key</label>
+                            <input id="firmsMapKeyInput" class="form-control command-input" type="password"
+                                autocomplete="new-password" spellcheck="false" placeholder="Not configured">
+                            <a href="https://firms.modaps.eosdis.nasa.gov/api/map_key" target="_blank"
+                                rel="noopener noreferrer">Get a free FIRMS key</a>
+                            <label class="api-key-clear"><input id="clearFirmsMapKey" type="checkbox"> Remove saved key</label>
+                            <span id="firmsMapKeyStatus" class="small-meta">Checking status...</span>
+                        </div>
+                        <div class="api-key-field">
+                            <label for="gnewsApiKeyInput" class="form-label">GNews API key</label>
+                            <input id="gnewsApiKeyInput" class="form-control command-input" type="password"
+                                autocomplete="new-password" spellcheck="false" placeholder="Not configured">
+                            <a href="https://gnews.io/" target="_blank" rel="noopener noreferrer">Get a GNews key</a>
+                            <label class="api-key-clear"><input id="clearGnewsApiKey" type="checkbox"> Remove saved key</label>
+                            <span id="gnewsApiKeyStatus" class="small-meta">Checking status...</span>
+                        </div>
+                        <div class="api-key-field">
+                            <label for="geminiApiKeyInput" class="form-label">Gemini API key</label>
+                            <input id="geminiApiKeyInput" class="form-control command-input" type="password"
+                                autocomplete="new-password" spellcheck="false" placeholder="Not configured">
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                                rel="noopener noreferrer">Get a Gemini key</a>
+                            <label class="api-key-clear"><input id="clearGeminiApiKey" type="checkbox"> Remove saved key</label>
+                            <span id="geminiApiKeyStatus" class="small-meta">Checking status...</span>
+                        </div>
+                    </div>
+                    <div class="api-key-actions">
+                        <label class="api-key-clear"><input id="showApiKeysInput" type="checkbox"> Show key text while typing</label>
+                        <button id="saveApiKeysBtn" class="btn btn-primary-ops" type="submit">Save keys for this run</button>
+                    </div>
+                    <p id="apiKeysMessage" class="message-box mt-3" role="status" aria-live="polite"></p>
+                </form>
+            </details>
+
+            <section class="section-panel">
+                <div class="section-heading compact-heading">
+                    <div>
+                        <p class="eyebrow">Local Inputs</p>
+                        <h2>Operator Factors Sent To Backend</h2>
+                    </div>
+                </div>
+
+                <div class="backend-input-grid">
+                    <div>
+                        <label for="slopeRiskInput" class="form-label">Terrain / Slope Risk</label>
+                        <select id="slopeRiskInput" class="form-select command-input">
+                            <option value="LOW">Low</option>
+                            <option value="MODERATE">Moderate</option>
+                            <option value="HIGH" selected>High</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="soilMoistureInput" class="form-label">Soil Moisture (%)</label>
+                        <input id="soilMoistureInput" class="form-control command-input" type="number" min="0"
+                            max="100" value="65">
+                    </div>
+                    <div>
+                        <label for="historicalInput" class="form-label">Historical Local Event Count</label>
+                        <input id="historicalInput" class="form-control command-input" type="number" min="0" value="2">
+                    </div>
+                    <div>
+                        <label for="roadStatusInput" class="form-label">Road Blockage</label>
+                        <select id="roadStatusInput" class="form-select command-input">
+                            <option value="NONE">None</option>
+                            <option value="PARTIAL">Partial</option>
+                            <option value="BLOCKED">Blocked</option>
+                            <option value="UNKNOWN">Unknown</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="infrastructureInput" class="form-label">Infrastructure / Operations</label>
+                        <select id="infrastructureInput" class="form-select command-input">
+                            <option value="NORMAL">Normal</option>
+                            <option value="WATCH" selected>Watch</option>
+                            <option value="DEGRADED">Degraded</option>
+                            <option value="FAILED">Failed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="exposureInput" class="form-label">Population Exposure</label>
+                        <select id="exposureInput" class="form-select command-input">
+                            <option value="LOW">Low</option>
+                            <option value="MODERATE" selected>Moderate</option>
+                            <option value="HIGH">High</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="drainageInput" class="form-label">Drainage Capacity</label>
+                        <select id="drainageInput" class="form-select command-input">
+                            <option value="GOOD">Good</option>
+                            <option value="FAIR" selected>Fair</option>
+                            <option value="POOR">Poor</option>
+                            <option value="FAILED">Failed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="riverLevelInput" class="form-label">River / Water Level</label>
+                        <select id="riverLevelInput" class="form-select command-input">
+                            <option value="NORMAL">Normal</option>
+                            <option value="WATCH" selected>Watch</option>
+                            <option value="HIGH">High</option>
+                            <option value="OVERFLOW">Overflow</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="report-grid mt-3">
+                    <label class="report-toggle"><input id="cracksInput" type="checkbox" checked><span>Slope cracks</span></label>
+                    <label class="report-toggle"><input id="movementInput" type="checkbox"><span>Slope movement</span></label>
+                    <label class="report-toggle"><input id="floodingInput" type="checkbox" checked><span>Flooding</span></label>
+                    <label class="report-toggle"><input id="roadBlockageInput" type="checkbox"><span>Road blockage report</span></label>
+                    <label class="report-toggle"><input id="buildingDamageInput" type="checkbox"><span>Building damage</span></label>
+                    <label class="report-toggle"><input id="powerOutageInput" type="checkbox"><span>Power outage</span></label>
+                    <label class="report-toggle"><input id="fireSmokeInput" type="checkbox"><span>Fire / smoke</span></label>
+                    <label class="report-toggle"><input id="medicalStressInput" type="checkbox"><span>Medical stress</span></label>
+                    <label class="report-toggle"><input id="waterShortageInput" type="checkbox"><span>Water shortage</span></label>
+                </div>
+            </section>
+
+            <section class="section-panel">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Real Data</p>
+                        <h2>Weather + Hazard Context</h2>
+                    </div>
+                    <span id="weatherTimestamp" class="small-meta">No data available</span>
+                </div>
+
+                <div id="weatherGrid" class="weather-grid">
+                    <div class="metric-card"><span>Temperature</span><strong id="temperatureValue">No data available</strong></div>
+                    <div class="metric-card"><span>Humidity</span><strong id="humidityValue">No data available</strong></div>
+                    <div class="metric-card"><span>Rain</span><strong id="rainValue">No data available</strong></div>
+                    <div class="metric-card"><span>Max 3-Day Forecast Rain</span><strong id="dailyRainValue">No data available</strong></div>
+                    <div class="metric-card"><span>Wind Speed</span><strong id="windValue">No data available</strong></div>
+                    <div class="metric-card"><span>Wind Gusts</span><strong id="gustValue">No data available</strong></div>
+                    <div class="metric-card"><span>Weather Code</span><strong id="weatherCodeValue">No data available</strong></div>
+                    <div class="metric-card"><span>Coordinates</span><strong id="coordinatesValue">No data available</strong></div>
+                    <div class="metric-card"><span>USGS Earthquakes</span><strong id="earthquakeValue">No data available</strong></div>
+                    <div class="metric-card"><span>Max Magnitude</span><strong id="magnitudeValue">No data available</strong></div>
+                    <div class="metric-card"><span>Flood Forecast Pressure</span><strong id="floodForecastValue">No data available</strong></div>
+                    <div class="metric-card"><span>Fire Hotspots</span><strong id="fireValue">No data available</strong></div>
+                    <div class="metric-card"><span>Timezone</span><strong id="timezoneValue">No data available</strong></div>
+                </div>
+            </section>
+
+            <section class="section-panel">
+                <div class="section-heading compact-heading">
+                    <div>
+                        <p class="eyebrow">API Details</p>
+                        <h2>External Data Received By Backend</h2>
+                    </div>
+                </div>
+
+                <div id="sourceSummaryGrid" class="source-summary-grid">
+                    <div class="source-card empty-state">No API data loaded</div>
+                </div>
+
+                <div class="detail-grid mt-3">
+                    <div class="detail-panel">
+                        <div class="detail-heading">
+                            <h3>Open-Meteo Weather Forecast</h3>
+                            <span id="weatherSourceStatus" class="small-meta">No data available</span>
+                        </div>
+                        <div id="weatherForecastTable" class="table-shell">No data available</div>
+                    </div>
+
+                    <div class="detail-panel">
+                        <div class="detail-heading">
+                            <h3>Open-Meteo Flood Forecast</h3>
+                            <span id="floodSourceStatus" class="small-meta">No data available</span>
+                        </div>
+                        <div id="floodForecastTable" class="table-shell">No data available</div>
+                    </div>
+
+                    <div class="detail-panel">
+                        <div class="detail-heading">
+                            <h3>USGS Earthquake Events</h3>
+                            <span id="earthquakeSourceStatus" class="small-meta">No data available</span>
+                        </div>
+                        <div id="earthquakeEventsTable" class="table-shell">No data available</div>
+                    </div>
+
+                    <div class="detail-panel">
+                        <div class="detail-heading">
+                            <h3>NASA FIRMS Fire Hotspots</h3>
+                            <span id="fireSourceStatus" class="small-meta">No data available</span>
+                        </div>
+                        <div id="fireHotspotsTable" class="table-shell">No data available</div>
+                    </div>
+
+                    <div class="detail-panel">
+                        <div class="detail-heading">
+                            <h3>GNews Risk Articles</h3>
+                            <span id="newsSourceStatus" class="small-meta">No data available</span>
+                        </div>
+                        <div id="newsArticlesTable" class="table-shell">No data available</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="row g-4">
+                <div class="col-12 col-xl-5">
+                    <section class="section-panel h-100">
+                        <p class="eyebrow">Risk Overview</p>
+                        <div class="risk-overview">
+                            <div>
+                                <div id="riskScore" class="risk-score">--</div>
+                                <div id="riskLevel" class="risk-pill risk-none">No data available</div>
+                            </div>
+                            <div class="risk-meter" aria-hidden="true">
+                                <div id="riskMeterFill" class="risk-meter-fill"></div>
+                            </div>
+                        </div>
+                        <p id="riskExplanation" class="panel-copy mt-3">
+                            Send coordinates and local factors to calculate the backend score.
+                        </p>
+                    </section>
+                </div>
+
+                <div class="col-12 col-xl-7">
+                    <section class="section-panel h-100">
+                        <p class="eyebrow">Weighted Factors</p>
+                        <div id="factorGrid" class="factor-grid">
+                            <div class="factor-card empty-state">No data available</div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <section class="section-panel ai-panel">
+                <div class="section-heading compact-heading">
+                    <div>
+                        <p class="eyebrow">AI Risk Intelligence</p>
+                        <h2>Gemini Score + User Guidance</h2>
+                    </div>
+                    <span id="aiStatusValue" class="small-meta">No data available</span>
+                </div>
+
+                <div class="ai-summary-grid">
+                    <div class="metric-card"><span>AI Score</span><strong id="aiScoreValue">No data available</strong></div>
+                    <div class="metric-card"><span>AI Level</span><strong id="aiLevelValue">No data available</strong></div>
+                    <div class="metric-card"><span>AI Confidence</span><strong id="aiConfidenceValue">No data available</strong></div>
+                    <div class="metric-card"><span>Rule Baseline</span><strong id="aiBaselineValue">No data available</strong></div>
+                </div>
+
+                <p id="aiRationale" class="panel-copy mt-3">
+                    Gemini assessment will appear after analysis when GEMINI_API_KEY is configured.
+                </p>
+
+                <div class="ai-detail-grid mt-3">
+                    <div>
+                        <h3>Top Drivers</h3>
+                        <ul id="aiDriversList" class="compact-list">
+                            <li>No data available</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>User Tips</h3>
+                        <ul id="aiTipsList" class="compact-list">
+                            <li>No data available</li>
+                        </ul>
+                    </div>
+                    <div class="wide">
+                        <h3>Action Plan</h3>
+                        <ul id="aiActionPlanList" class="compact-list action-plan-list">
+                            <li>No data available</li>
+                        </ul>
+                    </div>
+                    <div class="wide">
+                        <h3>News Findings</h3>
+                        <ul id="aiNewsFindingsList" class="compact-list">
+                            <li>No data available</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <div class="row g-4 mt-1">
+                <div class="col-12 col-lg-6">
+                    <section class="section-panel h-100">
+                        <p class="eyebrow">Recommendations</p>
+                        <ul id="recommendationList" class="recommendation-list">
+                            <li>No data available</li>
+                        </ul>
+                        <ul id="dataQualityList" class="recommendation-list mt-3">
+                            <li>No data quality notes available</li>
+                        </ul>
+                    </section>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                    <section class="section-panel h-100">
+                        <div class="section-heading compact-heading">
+                            <div>
+                                <p class="eyebrow">Intervention Simulator</p>
+                                <h2>Compare Current vs Simulated Scenario</h2>
+                            </div>
+                        </div>
+
+                        <label for="scenarioSelect" class="form-label">Scenario</label>
+                        <select id="scenarioSelect" class="form-select command-input">
+                            <option value="flood-response">Flood Response</option>
+                            <option value="slope-stabilization">Slope Stabilization</option>
+                            <option value="storm-readiness">Storm / Cyclone Readiness</option>
+                            <option value="heat-health-plan">Heat Health Action Plan</option>
+                            <option value="wildfire-containment">Wildfire Containment Readiness</option>
+                            <option value="earthquake-rapid-assessment">Earthquake Rapid Assessment</option>
+                            <option value="drought-water-management">Drought Water Management</option>
+                            <option value="increased-monitoring">Increased Multi-Hazard Monitoring</option>
+                        </select>
+
+                        <div id="simulationPanel" class="simulation-grid mt-3">
+                            <div><span>Current Score</span><strong id="currentScenarioScore">No data available</strong></div>
+                            <div><span>Simulated Score</span><strong id="simulatedScenarioScore">No data available</strong></div>
+                            <div><span>Current Level</span><strong id="currentScenarioLevel">No data available</strong></div>
+                            <div><span>Simulated Level</span><strong id="simulatedScenarioLevel">No data available</strong></div>
+                            <div><span>Score Range</span><strong id="simulatedRange">No data available</strong></div>
+                            <div><span>Confidence</span><strong id="simulationConfidence">No data available</strong></div>
+                            <div class="wide"><span>Estimated Change</span><strong id="estimatedChange">No data available</strong></div>
+                        </div>
+
+                        <p id="simulationExplanation" class="support-note mt-3">
+                            Simulation output will appear after backend analysis.
+                        </p>
+
+                        <div class="simulation-basis-grid mt-3">
+                            <div>
+                                <h3>API-backed Factors</h3>
+                                <ul id="apiBackedFactorsList" class="compact-list">
+                                    <li>No data available</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3>Adjustable Factors</h3>
+                                <ul id="adjustableFactorsList" class="compact-list">
+                                    <li>No data available</li>
+                                </ul>
+                            </div>
+                            <div class="wide">
+                                <h3>Fixed Observation Factors</h3>
+                                <ul id="fixedFactorsList" class="compact-list">
+                                    <li>No data available</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <section class="section-panel data-source-panel">
+                <p class="eyebrow">Backend Result</p>
+                <pre id="rawJsonOutput" class="raw-json">{}</pre>
+            </section>
+        </main>
+
+        <footer>
+            CASCADE-NET Risk Intelligence + Intervention Simulator
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
