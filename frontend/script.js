@@ -39,6 +39,7 @@ function cacheElements() {
     [
         "liveStatus",
         "messageBox",
+        "dailySearchUsage",
         "apiKeysForm",
         "apiKeysDeploymentNotice",
         "apiKeysSummaryStatus",
@@ -192,6 +193,26 @@ async function checkBackendHealth() {
     }
 
     await refreshApiKeyStatus();
+    await refreshDailySearchUsage();
+}
+
+async function refreshDailySearchUsage() {
+    try {
+        const response = await fetchJson("/api/usage/daily-searches", { cache: "no-store" });
+        displayDailySearchUsage(response.data);
+    } catch (error) {
+        elements.dailySearchUsage.textContent = "Daily search allowance is unavailable.";
+    }
+}
+
+function displayDailySearchUsage(status) {
+    const resetTime = new Date(status.resetAt).toLocaleString(undefined, {
+        timeZone: "UTC",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+    elements.dailySearchUsage.textContent =
+        `${status.used} of ${status.limit} daily searches used · ${status.remaining} remaining · resets at ${resetTime} UTC`;
 }
 
 async function refreshApiKeyStatus() {
@@ -459,6 +480,19 @@ function handleSimulationError(error) {
 async function fetchJson(path, options) {
     const response = await fetch(API_BASE_URL + path, options);
     const data = await response.json().catch(() => null);
+    const dailyLimit = Number(response.headers.get("X-Daily-Search-Limit"));
+    const dailyUsed = Number(response.headers.get("X-Daily-Search-Used"));
+    const dailyRemaining = Number(response.headers.get("X-Daily-Search-Remaining"));
+    const dailyReset = Number(response.headers.get("X-Daily-Search-Reset"));
+
+    if ([dailyLimit, dailyUsed, dailyRemaining, dailyReset].every(Number.isFinite) && dailyLimit > 0) {
+        displayDailySearchUsage({
+            limit: dailyLimit,
+            used: dailyUsed,
+            remaining: dailyRemaining,
+            resetAt: new Date(dailyReset * 1000).toISOString()
+        });
+    }
 
     if (!response.ok || !data || data.success === false) {
         throw new Error((data && data.message) || `Request failed with status ${response.status}.`);

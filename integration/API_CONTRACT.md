@@ -16,6 +16,15 @@ Missing external API data is not replaced with fake values. API-backed factors a
 
 Weather responses include `cacheStatus` (`miss` for a fresh upstream result, `hit` for a cached result). Successful results are cached in process memory for up to 10 minutes per exact coordinate pair. Open-Meteo rate limits are returned as HTTP 429 with a retry hint; wait before retrying.
 
+## Daily Search Limit
+
+- `POST /api/risk/analyze` allows at most 15 requests per client IP per UTC calendar day. Attempts count even if analysis fails after reaching the route.
+- `GET /api/usage/daily-searches` reports the current caller's usage without consuming a search.
+- Analysis responses include `X-Daily-Search-Limit`, `X-Daily-Search-Used`, `X-Daily-Search-Remaining`, and `X-Daily-Search-Reset` headers. The sixteenth request returns HTTP 429 and a `Retry-After` header.
+- The storage file retains HMACs of IP addresses, not raw IP addresses, and only the active UTC day's counters. Local development uses `.data/daily-search-limits.json`.
+- For Render, set `HOST=0.0.0.0` and `TRUST_PROXY_HOPS=1`, attach a persistent disk mounted at `/var/data`, and set `DAILY_LIMIT_STORAGE_PATH=/var/data/daily-search-limits.json`. Run only one service instance. Without persistent storage, redeploys or restarts can reset the quota. This file-backed limiter is not shared between multiple instances.
+- Since there are no user accounts, the IP address is an approximation of a user. Users behind the same public NAT share a limit; users can use different networks to obtain different IP-based quotas.
+
 ## Local API Key Settings
 
 The browser tester can configure optional API keys for the current server process:

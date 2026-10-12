@@ -11,6 +11,7 @@ const { getHazardContext } = require("./services/hazardDataService");
 const { getNewsContext } = require("./services/newsService");
 const { getWeatherByCoordinates } = require("./services/weatherService");
 const { getApiKeyStatus, isTrustedLocalRequest, updateApiKeys } = require("./utils/apiKeySettings");
+const { createDailySearchLimit } = require("./utils/dailySearchLimit");
 const { normalizeRiskInput, validateCoordinates } = require("./utils/validation");
 
 loadProjectEnv();
@@ -18,7 +19,19 @@ loadProjectEnv();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
+const TRUST_PROXY_HOPS = Number(process.env.TRUST_PROXY_HOPS || 0);
 
+if (!Number.isInteger(TRUST_PROXY_HOPS) || TRUST_PROXY_HOPS < 0) {
+    throw new Error("TRUST_PROXY_HOPS must be a non-negative integer.");
+}
+
+const dailySearchLimit = createDailySearchLimit({
+    filePath: process.env.DAILY_LIMIT_STORAGE_PATH
+        || path.join(__dirname, "..", ".data", "daily-search-limits.json"),
+    limit: 15
+});
+
+app.set("trust proxy", TRUST_PROXY_HOPS);
 app.use(express.json({ limit: "1mb" }));
 app.use(addCorsHeaders);
 app.use(express.static(path.join(__dirname, "..", "frontend")));
@@ -43,6 +56,17 @@ app.get("/api/risk/rules", (req, res) => {
             interventions: INTERVENTIONS
         }
     });
+});
+
+app.get("/api/usage/daily-searches", (req, res, next) => {
+    try {
+        const status = dailySearchLimit.getStatus(req.ip);
+        setDailySearchHeaders(res, status);
+        res.set("Cache-Control", "no-store");
+        res.json({ success: true, data: status });
+    } catch (error) {
+        next(error);
+    }
 });
 
 app.get("/api/settings/api-keys", (req, res) => {
@@ -125,7 +149,7 @@ app.get("/api/hazards", async (req, res, next) => {
     }
 });
 
-app.post("/api/risk/analyze", async (req, res, next) => {
+app.post("/api/risk/analyze", enforceDailySearchLimit, async (req, res, next) => {
     try {
         const input = normalizeRiskInput(req.body);
         let weather = input.weather;
@@ -251,10 +275,39 @@ function addCorsHeaders(req, res, next) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", "X-Daily-Search-Limit, X-Daily-Search-Used, X-Daily-Search-Remaining, X-Daily-Search-Reset");
 
     if (req.method === "OPTIONS") {
         return res.sendStatus(204);
     }
 
     next();
+}
+
+function enforceDailySearchLimit(req, res, next) {
+    try {
+        const status = dailySearchLimit.consume(req.ip);
+        setDailySearchHeaders(res, status);
+
+        if (!status.allowed) {
+            const retryAfterSeconds = Math.max(1, Math.ceil((Date.parse(status.resetAt) - Date.now()) / 1000));
+            res.set("Retry-After", String(retryAfterSeconds));
+            return res.status(429).json({
+                success: false,
+                message: `Daily search limit reached (${status.limit} searches per IP per UTC day). Resets at ${status.resetAt}.`,
+                data: status
+            });
+        }
+
+        next();
+    } catch (error) {
+        next(error);
+    }
+}
+
+function setDailySearchHeaders(res, status) {
+    res.set("X-Daily-Search-Limit", String(status.limit));
+    res.set("X-Daily-Search-Used", String(status.used));
+    res.set("X-Daily-Search-Remaining", String(status.remaining));
+    res.set("X-Daily-Search-Reset", String(Math.floor(Date.parse(status.resetAt) / 1000)));
 }
