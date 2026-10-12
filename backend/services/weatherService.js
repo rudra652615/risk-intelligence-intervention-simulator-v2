@@ -1,6 +1,10 @@
 const { validateCoordinates } = require("../utils/validation");
 
 const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
+const WEATHER_CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_WEATHER_CACHE_ENTRIES = 250;
+const weatherCache = new Map();
+const pendingWeatherRequests = new Map();
 
 async function getWeatherByCoordinates(latitude, longitude) {
     const validation = validateCoordinates(latitude, longitude);
@@ -38,11 +42,52 @@ async function getWeatherByCoordinates(latitude, longitude) {
         precipitation_unit: "mm"
     });
 
+    const cacheKey = `${validation.latitude},${validation.longitude}`;
+    const cached = weatherCache.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+        return { ...cached.weather, cacheStatus: "hit" };
+    }
+
+    if (cached) {
+        weatherCache.delete(cacheKey);
+    }
+
+    const pendingRequest = pendingWeatherRequests.get(cacheKey);
+
+    if (pendingRequest) {
+        const weather = await pendingRequest;
+        return { ...weather, cacheStatus: "hit" };
+    }
+
+    const request = fetchWeather(params);
+    pendingWeatherRequests.set(cacheKey, request);
+
+    try {
+        const weather = await request;
+        weatherCache.set(cacheKey, {
+            weather,
+            expiresAt: Date.now() + WEATHER_CACHE_TTL_MS
+        });
+        trimWeatherCache();
+        return { ...weather, cacheStatus: "miss" };
+    } finally {
+        pendingWeatherRequests.delete(cacheKey);
+    }
+}
+
+async function fetchWeather(params) {
     const response = await fetch(`${OPEN_METEO_URL}?${params.toString()}`);
 
     if (!response.ok) {
-        const error = new Error(`Open-Meteo returned status ${response.status}.`);
-        error.statusCode = 502;
+        const isRateLimited = response.status === 429;
+        const retryAfter = response.headers && response.headers.get("retry-after");
+        const retryAfterSeconds = getRetryAfterSeconds(retryAfter);
+        const error = new Error(isRateLimited
+            ? `Open-Meteo rate limit reached (HTTP 429). ${formatRetryAfter(retryAfter)} Avoid repeated retries.`
+            : `Open-Meteo returned status ${response.status}.`);
+        error.statusCode = isRateLimited ? 429 : 502;
+        error.retryAfterSeconds = retryAfterSeconds;
         throw error;
     }
 
@@ -81,6 +126,39 @@ async function getWeatherByCoordinates(latitude, longitude) {
         source: "Open-Meteo Forecast API",
         sourceUrl: "https://open-meteo.com/"
     };
+}
+
+function formatRetryAfter(value) {
+    const seconds = getRetryAfterSeconds(value);
+    return seconds
+        ? `Try again in about ${seconds} seconds.`
+        : "Wait a few minutes before trying again.";
+}
+
+function getRetryAfterSeconds(value) {
+    if (!value) {
+        return null;
+    }
+
+    const seconds = Number(value);
+
+    if (Number.isFinite(seconds) && seconds > 0) {
+        return Math.min(86400, Math.ceil(seconds));
+    }
+
+    const retryAt = new Date(value);
+
+    if (Number.isNaN(retryAt.getTime())) {
+        return null;
+    }
+
+    return Math.min(86400, Math.max(1, Math.ceil((retryAt.getTime() - Date.now()) / 1000)));
+}
+
+function trimWeatherCache() {
+    while (weatherCache.size > MAX_WEATHER_CACHE_ENTRIES) {
+        weatherCache.delete(weatherCache.keys().next().value);
+    }
 }
 
 function getDailyValue(values, index) {

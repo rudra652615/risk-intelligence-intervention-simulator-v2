@@ -233,6 +233,10 @@ app.use((req, res) => {
 app.use((error, req, res, next) => {
     const statusCode = error.statusCode || 500;
 
+    if (statusCode === 429) {
+        res.set("Retry-After", String(error.retryAfterSeconds || 300));
+    }
+
     res.status(statusCode).json({
         success: false,
         message: error.message || "Internal server error."

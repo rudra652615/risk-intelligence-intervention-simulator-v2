@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "test": "node backend/tests/riskEngine.test.js && node backend/tests/aiServices.test.js",
+    "test": "node backend/tests/riskEngine.test.js && node backend/tests/aiServices.test.js && node backend/tests/weatherService.test.js",
     "check": "node --check backend/server.js && node --check frontend/script.js"
   },
   "dependencies": {

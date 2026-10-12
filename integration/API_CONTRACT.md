@@ -14,6 +14,8 @@ This module is backend-first. The frontend is only a tester for Rudra's backend 
 
 Missing external API data is not replaced with fake values. API-backed factors are marked `UNAVAILABLE` and receive `0` contribution when the external source is unavailable or not configured.
 
+Weather responses include `cacheStatus` (`miss` for a fresh upstream result, `hit` for a cached result). Successful results are cached in process memory for up to 10 minutes per exact coordinate pair. Open-Meteo rate limits are returned as HTTP 429 with a retry hint; wait before retrying.
+
 ## Local API Key Settings
 
 The browser tester can configure optional API keys for the current server process:

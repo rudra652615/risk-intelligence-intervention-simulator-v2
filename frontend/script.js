@@ -40,6 +40,7 @@ function cacheElements() {
         "liveStatus",
         "messageBox",
         "apiKeysForm",
+        "apiKeysDeploymentNotice",
         "apiKeysSummaryStatus",
         "firmsMapKeyInput",
         "gnewsApiKeyInput",
@@ -145,7 +146,7 @@ function bindEvents() {
 
     elements.useLocationBtn.addEventListener("click", getBrowserLocationAndAnalyze);
 
-    elements.apiKeysForm.addEventListener("submit", saveApiKeys);
+    elements.saveApiKeysBtn.addEventListener("click", saveApiKeys);
     elements.showApiKeysInput.addEventListener("change", function () {
         const inputType = elements.showApiKeysInput.checked ? "text" : "password";
         [elements.firmsMapKeyInput, elements.gnewsApiKeyInput, elements.geminiApiKeyInput]
@@ -191,6 +192,14 @@ async function checkBackendHealth() {
 }
 
 async function refreshApiKeyStatus() {
+    if (!isLocalApiKeySettingsAvailable()) {
+        elements.apiKeysSummaryStatus.textContent = "Configure keys in hosting settings";
+        elements.apiKeysDeploymentNotice.hidden = false;
+        elements.apiKeysDeploymentNotice.textContent = "Browser key entry is available only on localhost. For Render, add optional provider keys in your service's Environment settings, then redeploy.";
+        elements.apiKeysForm.hidden = true;
+        return;
+    }
+
     try {
         const response = await fetchJson("/api/settings/api-keys", { cache: "no-store" });
         const labels = [
@@ -224,8 +233,11 @@ async function refreshApiKeyStatus() {
     }
 }
 
-async function saveApiKeys(event) {
-    event.preventDefault();
+function isLocalApiKeySettingsAvailable() {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname.toLowerCase());
+}
+
+async function saveApiKeys() {
     const keys = {
         firmsMapKey: elements.firmsMapKeyInput.value,
         gnewsApiKey: elements.gnewsApiKeyInput.value,
@@ -487,7 +499,8 @@ function displayApiDetails(weather, hazardContext, newsContext) {
         sourceCard("GNews Articles", news && news.status, news && news.source, news && news.sourceUrl)
     ].join("");
 
-    elements.weatherSourceStatus.textContent = `${weather.source || "Open-Meteo"} | ${weather.timezone || "No timezone"}`;
+    const weatherCacheStatus = weather.cacheStatus === "hit" ? "cached result" : "live response";
+    elements.weatherSourceStatus.textContent = `${weatherCacheStatus} | ${weather.source || "Open-Meteo"} | ${weather.timezone || "No timezone"}`;
     elements.floodSourceStatus.textContent = formatSourceStatus(floodForecast);
     elements.earthquakeSourceStatus.textContent = formatSourceStatus(earthquakes);
     elements.fireSourceStatus.textContent = formatSourceStatus(fireHotspots);
