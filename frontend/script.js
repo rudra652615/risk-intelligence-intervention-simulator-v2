@@ -146,7 +146,10 @@ function bindEvents() {
 
     elements.useLocationBtn.addEventListener("click", getBrowserLocationAndAnalyze);
 
-    elements.saveApiKeysBtn.addEventListener("click", saveApiKeys);
+    elements.apiKeysForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        saveApiKeys();
+    });
     elements.showApiKeysInput.addEventListener("change", function () {
         const inputType = elements.showApiKeysInput.checked ? "text" : "password";
         [elements.firmsMapKeyInput, elements.gnewsApiKeyInput, elements.geminiApiKeyInput]

@@ -63,11 +63,15 @@ async function run() {
         assert.strictEqual(concurrentRequestCount, 1, "concurrent requests for one location should be coalesced");
         assert(concurrentResults.every((result) => result.temperature === 25));
 
-        global.fetch = async () => ({
-            ok: false,
-            status: 429,
-            headers: { get: (name) => name === "retry-after" ? "60" : null }
-        });
+        let rateLimitedRequestCount = 0;
+        global.fetch = async () => {
+            rateLimitedRequestCount += 1;
+            return {
+                ok: false,
+                status: 429,
+                headers: { get: (name) => name === "retry-after" ? "60" : null }
+            };
+        };
 
         await assert.rejects(
             getWeatherByCoordinates(14.68023, 47.90234),
@@ -76,6 +80,12 @@ async function run() {
                 && error.message.includes("rate limit")
                 && error.message.includes("60 seconds")
         );
+
+        await assert.rejects(
+            getWeatherByCoordinates(15.79134, 48.01345),
+            (error) => error.statusCode === 429 && error.retryAfterSeconds >= 59
+        );
+        assert.strictEqual(rateLimitedRequestCount, 1, "upstream cooldown should prevent repeated 429 requests");
     } finally {
         global.fetch = originalFetch;
     }

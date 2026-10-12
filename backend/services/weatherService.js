@@ -3,8 +3,10 @@ const { validateCoordinates } = require("../utils/validation");
 const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
 const WEATHER_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_WEATHER_CACHE_ENTRIES = 250;
+const DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS = 300;
 const weatherCache = new Map();
 const pendingWeatherRequests = new Map();
+let weatherRateLimitUntil = 0;
 
 async function getWeatherByCoordinates(latitude, longitude) {
     const validation = validateCoordinates(latitude, longitude);
@@ -77,17 +79,28 @@ async function getWeatherByCoordinates(latitude, longitude) {
 }
 
 async function fetchWeather(params) {
+    const remainingCooldownSeconds = Math.ceil((weatherRateLimitUntil - Date.now()) / 1000);
+
+    if (remainingCooldownSeconds > 0) {
+        throw createRateLimitError(remainingCooldownSeconds);
+    }
+
     const response = await fetch(`${OPEN_METEO_URL}?${params.toString()}`);
 
     if (!response.ok) {
         const isRateLimited = response.status === 429;
         const retryAfter = response.headers && response.headers.get("retry-after");
-        const retryAfterSeconds = getRetryAfterSeconds(retryAfter);
-        const error = new Error(isRateLimited
-            ? `Open-Meteo rate limit reached (HTTP 429). ${formatRetryAfter(retryAfter)} Avoid repeated retries.`
-            : `Open-Meteo returned status ${response.status}.`);
-        error.statusCode = isRateLimited ? 429 : 502;
-        error.retryAfterSeconds = retryAfterSeconds;
+        const retryAfterSeconds = isRateLimited
+            ? getRetryAfterSeconds(retryAfter) || DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS
+            : null;
+
+        if (isRateLimited) {
+            weatherRateLimitUntil = Date.now() + retryAfterSeconds * 1000;
+            throw createRateLimitError(retryAfterSeconds);
+        }
+
+        const error = new Error(`Open-Meteo returned status ${response.status}.`);
+        error.statusCode = 502;
         throw error;
     }
 
@@ -128,11 +141,11 @@ async function fetchWeather(params) {
     };
 }
 
-function formatRetryAfter(value) {
-    const seconds = getRetryAfterSeconds(value);
-    return seconds
-        ? `Try again in about ${seconds} seconds.`
-        : "Wait a few minutes before trying again.";
+function createRateLimitError(retryAfterSeconds) {
+    const error = new Error(`Open-Meteo rate limit reached (HTTP 429). Try again in about ${retryAfterSeconds} seconds. Avoid repeated retries.`);
+    error.statusCode = 429;
+    error.retryAfterSeconds = retryAfterSeconds;
+    return error;
 }
 
 function getRetryAfterSeconds(value) {

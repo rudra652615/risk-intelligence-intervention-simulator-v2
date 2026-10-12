@@ -90,7 +90,9 @@
                     environment settings instead.
                 </p>
                 <p id="apiKeysDeploymentNotice" class="support-note" hidden></p>
-                <div id="apiKeysForm">
+                <form id="apiKeysForm" autocomplete="off">
+                    <input class="credential-username" type="text" name="username" autocomplete="username"
+                        tabindex="-1" aria-hidden="true">
                     <div class="api-key-grid">
                         <div class="api-key-field">
                             <label for="firmsMapKeyInput" class="form-label">NASA FIRMS map key</label>
@@ -121,10 +123,10 @@
                     </div>
                     <div class="api-key-actions">
                         <label class="api-key-clear"><input id="showApiKeysInput" type="checkbox"> Show key text while typing</label>
-                        <button id="saveApiKeysBtn" class="btn btn-primary-ops" type="button">Save keys for this run</button>
+                        <button id="saveApiKeysBtn" class="btn btn-primary-ops" type="submit">Save keys for this run</button>
                     </div>
                     <p id="apiKeysMessage" class="message-box mt-3" role="status" aria-live="polite"></p>
-                </div>
+                </form>
             </details>
 
             <section class="section-panel">
